@@ -10,7 +10,7 @@
 
 package starling.extensions;
 
-import haxe.xml.Fast;
+import haxe.xml.Access;
 
 import openfl.display3D.Context3DBlendFactor;
 import openfl.errors.ArgumentError;
@@ -299,7 +299,7 @@ class PDParticleSystem extends ParticleSystem
     
     private function parseConfig(config:String):Void
     {
-        var xml = new Fast(Xml.parse(config).firstElement());
+        var xml = new Access(Xml.parse(config).firstElement());
         var config = xml.node;
         _emitterXVariance = Std.parseFloat(config.sourcePositionVariance.att.x);
         _emitterYVariance = Std.parseFloat(config.sourcePositionVariance.att.y);
@@ -362,17 +362,17 @@ class PDParticleSystem extends ParticleSystem
         updateBlendMode();
     }
     
-    private function getIntValue(element:Fast):Int
+    private function getIntValue(element:Access):Int
     {
         return Std.parseInt(element.att.value);
     }
     
-    private function getFloatValue(element:Fast):Float
+    private function getFloatValue(element:Access):Float
     {
         return Std.parseFloat(element.att.value);
     }
 
-    private function getColor(element:Fast):ColorArgb
+    private function getColor(element:Access):ColorArgb
     {
         var color:ColorArgb = new ColorArgb();
         color.red   = Std.parseFloat(element.att.red);
@@ -382,7 +382,7 @@ class PDParticleSystem extends ParticleSystem
         return color;
     }
 
-    private function getBlendFunc(element:Fast):Context3DBlendFactor
+    private function getBlendFunc(element:Access):Context3DBlendFactor
     {
         var value:Int = getIntValue(element);
         switch (value)

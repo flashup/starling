@@ -1,5 +1,13 @@
 [![Simplified BSD License](https://img.shields.io/badge/license-BSD-blue.svg?style=flat)](LICENSE.md) [![NPM Version](https://img.shields.io/npm/v/starling-framework.svg?style=flat)](http://npmjs.com/package/starling-framework) [![Haxelib Version](https://img.shields.io/github/tag/openfl/starling.svg?style=flat&label=haxelib)](http://lib.haxe.org/p/starling) [![Build Status](https://img.shields.io/circleci/project/github/openfl/starling/master.svg)](https://circleci.com/gh/openfl/starling)
 
+Fork changes:
+--
+* _starling.extensions.PDParticleSystem:_  
+change haxe.xml.Fast -> haxe.xml.Access
+
+* _starling.assets.AssetManager:_  
+Added 2 callbacks for overriding: _loadAssetSuccess_ and _loadAssetError_
+
 Starling Framework
 ==================
 

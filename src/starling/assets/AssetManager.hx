@@ -538,6 +538,8 @@ class AssetManager extends EventDispatcher
 
             onLoadProgress(1.0);
 
+            loadAssetSuccess(reference);
+
             if (data != null)      reference.data = data;
             if (name != null)      reference.name = name;
             if (extension != null) reference.extension = extension;
@@ -575,6 +577,7 @@ class AssetManager extends EventDispatcher
         onAnyError = function (error:String):Void
         {
             log(error);
+            loadAssetError(reference);
             Execute.execute(onError, [error, reference]);
         }
         
@@ -594,6 +597,12 @@ class AssetManager extends EventDispatcher
             (cast(reference.data, AssetManager)).loadQueue(onManagerComplete, onIntermediateError, onLoadProgress);
         else
             Timer.delay(function():Void { onLoadComplete(reference.data); }, 1);
+    }
+
+    private function loadAssetSuccess(ref:AssetReference):Void {
+    }
+
+    private function loadAssetError(ref:AssetReference):Void {
     }
 
     private function getFactoryFor(asset:AssetReference):AssetFactory

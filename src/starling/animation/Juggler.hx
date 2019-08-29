@@ -152,8 +152,7 @@ class Juggler implements IAnimatable
         while (i >= 0)
         {
             object = __objects[i];
-
-            if (__objectIDs[object] == objectID)
+            if (object != null && __objectIDs[object] == objectID)
             {
                 remove(object);
                 return objectID;

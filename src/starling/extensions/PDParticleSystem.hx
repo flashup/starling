@@ -10,7 +10,11 @@
 
 package starling.extensions;
 
+#if haxe4
 import haxe.xml.Access;
+#else
+import haxe.xml.Fast in Access;
+#end
 
 import openfl.display3D.Context3DBlendFactor;
 import openfl.errors.ArgumentError;

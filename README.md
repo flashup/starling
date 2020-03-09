@@ -2,11 +2,9 @@
 
 Fork changes:
 --
-* _starling.extensions.PDParticleSystem:_  
-change haxe.xml.Fast -> haxe.xml.Access
-
+* checking object is not null was added to Juggler; 
 * _starling.assets.AssetManager:_  
-Added 2 callbacks for overriding: _loadAssetSuccess_ and _loadAssetError_
+Added 2 callbacks for overriding: _loadAssetSuccess_ and _loadAssetError_.
 
 Starling Framework
 ==================

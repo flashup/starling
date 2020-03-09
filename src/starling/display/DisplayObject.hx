@@ -10,6 +10,8 @@
 
 package starling.display;
 
+import starling.utils.Execute;
+import starling.utils.Pool;
 import haxe.Constraints.Function;
 import openfl.display.BitmapData;
 
@@ -428,8 +430,8 @@ class DisplayObject extends EventDispatcher
     /** Draws the object into a BitmapData object.
      * 
      *  <p>This is achieved by drawing the object into the back buffer and then copying the
-     *  pixels of the back buffer into a texture. This also means that the returned bitmap
-     *  data cannot be bigger than the current viewPort.</p>
+     *  pixels of the back buffer into a texture. Beware: image sizes bigger than the back
+         *  buffer are only supported in AIR version 25 or higher and NOT in Flash Player.</p>
      *
      *  @param out   If you pass null, the object will be created for you.
      *               If you pass a BitmapData object, it should have the size of the
@@ -448,6 +450,8 @@ class DisplayObject extends EventDispatcher
         var scaleX:Float = viewPort.width  / stageWidth;
         var scaleY:Float = viewPort.height / stageHeight;
         var backBufferScale:Float = painter.backBufferScaleFactor;
+        var totalScaleX:Float = scaleX * backBufferScale;
+        var totalScaleY:Float = scaleY * backBufferScale;
         var projectionX:Float, projectionY:Float;
         var bounds:Rectangle;
 
@@ -456,8 +460,8 @@ class DisplayObject extends EventDispatcher
             projectionX = viewPort.x < 0 ? -viewPort.x / scaleX : 0.0;
             projectionY = viewPort.y < 0 ? -viewPort.y / scaleY : 0.0;
 
-            if (out == null) out = new BitmapData(Std.int(painter.backBufferWidth  * backBufferScale),
-                                    Std.int(painter.backBufferHeight * backBufferScale));
+            if (out == null) out = new BitmapData(Math.ceil(painter.backBufferWidth  * backBufferScale),
+                                                  Math.ceil(painter.backBufferHeight * backBufferScale));
         }
         else
         {
@@ -465,32 +469,64 @@ class DisplayObject extends EventDispatcher
             projectionX = bounds.x;
             projectionY = bounds.y;
 
-            if (out == null) out = new BitmapData(Math.ceil(bounds.width  * scaleX * backBufferScale),
-                                    Math.ceil(bounds.height * scaleY * backBufferScale));
+            if (out == null) out = new BitmapData(Math.ceil(bounds.width  * totalScaleX),
+                                                  Math.ceil(bounds.height * totalScaleY));
         }
 
         color = Color.multiply(color, alpha); // premultiply alpha
 
-        painter.clear(color, alpha);
         painter.pushState();
         painter.setupContextDefaults();
         painter.state.renderTarget = null;
         painter.state.setModelviewMatricesToIdentity();
         painter.setStateTo(transformationMatrix);
-        painter.state.setProjectionMatrix(projectionX, projectionY,
-            painter.backBufferWidth / scaleX, painter.backBufferHeight / scaleY,
-            stageWidth, stageHeight, stage.cameraPosition);
 
-        if (__mask != null)   painter.drawMask(mask, this);
+        // Images that are bigger than the current back buffer are drawn in multiple steps.
 
-        if (__filter != null) __filter.render(painter);
-        else         render(painter);
+        var stepX:Float;
+        var stepY:Float = projectionY;
+        var stepWidth:Float  = painter.backBufferWidth  / scaleX;
+        var stepHeight:Float = painter.backBufferHeight / scaleY;
+        var positionInBitmap:Point = Pool.getPoint(0, 0);
+        var boundsInBuffer:Rectangle = Pool.getRectangle(0, 0,
+                painter.backBufferWidth  * backBufferScale,
+                painter.backBufferHeight * backBufferScale);
 
-        if (__mask != null)   painter.eraseMask(mask, this);
+        if (__mask != null) painter.eraseMask(mask, this);
 
-        painter.finishMeshBatch();
-        painter.context.drawToBitmapData(out);
+        while (positionInBitmap.y < out.height)
+        {
+            stepX = projectionX;
+            positionInBitmap.x = 0;
+
+            while (positionInBitmap.x < out.width)
+            {
+                painter.clear(color, alpha);
+                painter.state.setProjectionMatrix(stepX, stepY, stepWidth, stepHeight,
+                stageWidth, stageHeight, stage.cameraPosition);
+
+                if (__mask != null)   painter.drawMask(mask, this);
+
+                if (__filter != null) __filter.render(painter);
+                else         render(painter);
+
+                if (__mask != null)   painter.eraseMask(mask, this);
+
+                painter.finishMeshBatch();
+                Execute.execute(painter.context.drawToBitmapData, [out, boundsInBuffer, positionInBitmap]);
+
+                stepX += stepWidth;
+                positionInBitmap.x += stepWidth * totalScaleX;
+            }
+
+            stepY += stepHeight;
+            positionInBitmap.y += stepHeight * totalScaleY;
+        }
+
         painter.popState();
+
+        Pool.putRectangle(boundsInBuffer);
+        Pool.putPoint(positionInBitmap);
 
         return out;
     }
@@ -961,8 +997,8 @@ class DisplayObject extends EventDispatcher
      * Note that for objects in a 3D space (connected to a Sprite3D), this value might not
      * be accurate until the object is part of the display list. */
     public var width(get, set):Float;
-    private function get_width():Float { return getBounds(__parent, sHelperRect).width; }
-    private function set_width(value:Float):Float
+    @:keep private function get_width():Float { return getBounds(__parent, sHelperRect).width; }
+    @:keep private function set_width(value:Float):Float
     {
         // this method calls 'this.scaleX' instead of changing _scaleX directly.
         // that way, subclasses reacting on size changes need to override only the scaleX method.
@@ -983,8 +1019,8 @@ class DisplayObject extends EventDispatcher
      * Note that for objects in a 3D space (connected to a Sprite3D), this value might not
      * be accurate until the object is part of the display list. */
     public var height(get, set):Float;
-    private function get_height():Float { return getBounds(__parent, sHelperRect).height; }
-    private function set_height(value:Float):Float
+    @:keep private function get_height():Float { return getBounds(__parent, sHelperRect).height; }
+    @:keep private function set_height(value:Float):Float
     {
         var actualHeight:Float;
         var scaleIsNaN:Bool = __scaleY != __scaleY; // avoid 'isNaN' call
@@ -1000,8 +1036,8 @@ class DisplayObject extends EventDispatcher
     
     /** The x coordinate of the object relative to the local coordinates of the parent. */
     public var x(get, set):Float;
-    private function get_x():Float { return __x; }
-    private function set_x(value:Float):Float 
+    @:keep private function get_x():Float { return __x; }
+    @:keep private function set_x(value:Float):Float
     { 
         if (__x != value)
         {
@@ -1013,8 +1049,8 @@ class DisplayObject extends EventDispatcher
     
     /** The y coordinate of the object relative to the local coordinates of the parent. */
     public var y(get, set):Float;
-    private function get_y():Float { return __y; }
-    private function set_y(value:Float):Float 
+    @:keep private function get_y():Float { return __y; }
+    @:keep private function set_y(value:Float):Float
     {
         if (__y != value)
         {
@@ -1026,8 +1062,8 @@ class DisplayObject extends EventDispatcher
     
     /** The x coordinate of the object's origin in its own coordinate space (default: 0). */
     public var pivotX(get, set):Float;
-    private function get_pivotX():Float { return __pivotX; }
-    private function set_pivotX(value:Float):Float 
+    @:keep private function get_pivotX():Float { return __pivotX; }
+    @:keep private function set_pivotX(value:Float):Float
     {
         if (__pivotX != value)
         {
@@ -1039,8 +1075,8 @@ class DisplayObject extends EventDispatcher
     
     /** The y coordinate of the object's origin in its own coordinate space (default: 0). */
     public var pivotY(get, set):Float;
-    private function get_pivotY():Float { return __pivotY; }
-    private function set_pivotY(value:Float):Float 
+    @:keep private function get_pivotY():Float { return __pivotY; }
+    @:keep private function set_pivotY(value:Float):Float
     { 
         if (__pivotY != value)
         {
@@ -1053,8 +1089,8 @@ class DisplayObject extends EventDispatcher
     /** The horizontal scale factor. '1' means no scale, negative values flip the object.
      * @default 1 */
     public var scaleX(get, set):Float;
-    private function get_scaleX():Float { return __scaleX; }
-    private function set_scaleX(value:Float):Float 
+    @:keep private function get_scaleX():Float { return __scaleX; }
+    @:keep private function set_scaleX(value:Float):Float
     { 
         if (__scaleX != value)
         {
@@ -1067,8 +1103,8 @@ class DisplayObject extends EventDispatcher
     /** The vertical scale factor. '1' means no scale, negative values flip the object.
      * @default 1 */
     public var scaleY(get, set):Float;
-    private function get_scaleY():Float { return __scaleY; }
-    private function set_scaleY(value:Float):Float 
+    @:keep private function get_scaleY():Float { return __scaleY; }
+    @:keep private function set_scaleY(value:Float):Float
     { 
         if (__scaleY != value)
         {
@@ -1081,13 +1117,13 @@ class DisplayObject extends EventDispatcher
     /** Sets both 'scaleX' and 'scaleY' to the same value. The getter simply returns the
      * value of 'scaleX' (even if the scaling values are different). @default 1 */
     public var scale(get, set):Float;
-    private function get_scale():Float { return scaleX; }
-    private function set_scale(value:Float):Float { return scaleX = scaleY = value; }
+    @:keep private function get_scale():Float { return scaleX; }
+    @:keep private function set_scale(value:Float):Float { return scaleX = scaleY = value; }
     
     /** The horizontal skew angle in radians. */
     public var skewX(get, set):Float;
-    private function get_skewX():Float { return __skewX; }
-    private function set_skewX(value:Float):Float 
+    @:keep private function get_skewX():Float { return __skewX; }
+    @:keep private function set_skewX(value:Float):Float
     {
         value = MathUtil.normalizeAngle(value);
         
@@ -1101,8 +1137,8 @@ class DisplayObject extends EventDispatcher
     
     /** The vertical skew angle in radians. */
     public var skewY(get, set):Float;
-    private function get_skewY():Float { return __skewY; }
-    private function set_skewY(value:Float):Float 
+    @:keep private function get_skewY():Float { return __skewY; }
+    @:keep private function set_skewY(value:Float):Float
     {
         value = MathUtil.normalizeAngle(value);
         
@@ -1117,8 +1153,8 @@ class DisplayObject extends EventDispatcher
     /** The rotation of the object in radians. (In Starling, all angles are measured 
      * in radians.) */
     public var rotation(get, set):Float;
-    private function get_rotation():Float { return __rotation; }
-    private function set_rotation(value:Float):Float 
+    @:keep private function get_rotation():Float { return __rotation; }
+    @:keep private function set_rotation(value:Float):Float
     {
         value = MathUtil.normalizeAngle(value);
 
